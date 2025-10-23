@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GlassmorphicButton } from './GlassmorphicButton';
 import { Input } from './ui/input';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { napletonLogo } from '../media/logo';
 import { toast } from 'sonner@2.0.3';
