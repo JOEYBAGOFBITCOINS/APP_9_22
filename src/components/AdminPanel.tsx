@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, UserPlus, Download, Users, BarChart3, Mail, Shield, FileText, Trash2, CheckCircle, Image, X } from 'lucide-react';
+import { ArrowLeft, UserPlus, Download, Users, BarChart3, Mail, ShieldCheck, FileText, Trash2, CheckCircle, Image, X } from 'lucide-react';
 import { GlassmorphicButton } from './GlassmorphicButton';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -428,7 +428,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <div>
             <label className="text-white text-sm font-medium mb-2 block flex items-center">
-              <Shield className="w-4 h-4 mr-2" />
+              <ShieldCheck className="w-4 h-4 mr-2" />
               Role *
             </label>
             <Select 
@@ -508,7 +508,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     user.role === 'admin' ? 'bg-purple-500/20' : 'bg-blue-500/20'
                   }`}>
                     {user.role === 'admin' ? (
-                      <Shield className="w-5 h-5 text-purple-400" />
+                      <ShieldCheck className="w-5 h-5 text-purple-400" />
                     ) : (
                       <Users className="w-5 h-5 text-blue-400" />
                     )}
