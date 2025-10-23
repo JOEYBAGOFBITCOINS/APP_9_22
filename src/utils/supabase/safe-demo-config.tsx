@@ -25,7 +25,7 @@ const getSafeConfig = () => {
       return {
         isDemoMode: env.VITE_DEMO_MODE === 'false' ? false : true,  // Default to true unless explicitly false
         skipAuth: env.VITE_SKIP_AUTH === 'false' ? false : true,    // Default to true unless explicitly false
-        autoLogin: env.VITE_AUTO_LOGIN === 'true' || isDev,
+        autoLogin: env.VITE_AUTO_LOGIN === 'true',  // Only auto-login if explicitly set to true
         defaultUserRole: env.VITE_DEFAULT_USER_ROLE || 'porter',
         debugMode: env.VITE_DEBUG_MODE === 'true' || isDev,
         mode: env.MODE || (isDev ? 'development' : 'production')
@@ -44,7 +44,7 @@ const getSafeConfig = () => {
       return {
         isDemoMode: process.env.VITE_DEMO_MODE === 'false' ? false : true,  // Default to true unless explicitly false
         skipAuth: process.env.VITE_SKIP_AUTH === 'false' ? false : true,    // Default to true unless explicitly false
-        autoLogin: process.env.VITE_AUTO_LOGIN === 'true' || isDev,
+        autoLogin: process.env.VITE_AUTO_LOGIN === 'true',  // Only auto-login if explicitly set to true
         defaultUserRole: process.env.VITE_DEFAULT_USER_ROLE || 'porter',
         debugMode: process.env.VITE_DEBUG_MODE === 'true' || isDev,
         mode: process.env.NODE_ENV || (isDev ? 'development' : 'production')
@@ -57,11 +57,11 @@ const getSafeConfig = () => {
   try {
     // Strategy 3: Development mode detection fallback
     const isDev = isDevelopmentFallback();
-    
+
     return {
       isDemoMode: isDev,
       skipAuth: isDev,
-      autoLogin: isDev,
+      autoLogin: false,  // Never auto-login by default, always show login screen
       defaultUserRole: 'porter',
       debugMode: isDev,
       mode: isDev ? 'development' : 'production'
