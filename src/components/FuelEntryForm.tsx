@@ -30,7 +30,7 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
   const [vinPhoto, setVinPhoto] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [submittedEntry, setSubmittedEntry] = useState<any>(null);
+  const [submittedEntry, setSubmittedEntry] = useState<Omit<FuelEntry, 'id' | 'userId' | 'userName' | 'submittedAt'> | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState<'receipt' | 'vin'>('receipt');
   const [currentStep, setCurrentStep] = useState<'vehicle' | 'details'>('vehicle');
@@ -76,28 +76,28 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
   const validateForm = () => {
     const errors: string[] = [];
 
-    // Either stock number or VIN photo is required
     if (!formData.stockNumber.trim() && !vinPhoto) {
       errors.push('Stock Number or VIN photo is required');
     }
 
-    // Numeric validations
-    if (!formData.mileage || isNaN(Number(formData.mileage)) || Number(formData.mileage) <= 0) {
-      errors.push('Valid mileage is required');
+    const mileage = Number(formData.mileage);
+    if (!formData.mileage || isNaN(mileage) || mileage <= 0 || mileage > 1000000) {
+      errors.push('Valid mileage is required (1-1,000,000)');
     }
 
-    if (!formData.fuelAmount || isNaN(Number(formData.fuelAmount)) || Number(formData.fuelAmount) <= 0) {
-      errors.push('Valid fuel amount is required');
+    const fuelAmount = Number(formData.fuelAmount);
+    if (!formData.fuelAmount || isNaN(fuelAmount) || fuelAmount <= 0 || fuelAmount > 1000) {
+      errors.push('Valid fuel amount is required (0.01-1,000 gallons)');
     }
 
-    if (!formData.fuelCost || isNaN(Number(formData.fuelCost)) || Number(formData.fuelCost) <= 0) {
-      errors.push('Valid fuel cost is required');
+    const fuelCost = Number(formData.fuelCost);
+    if (!formData.fuelCost || isNaN(fuelCost) || fuelCost <= 0 || fuelCost > 10000) {
+      errors.push('Valid fuel cost is required ($0.01-$10,000)');
     }
 
-    // Receipt photo is optional for testing (remove this comment to make required in production)
-    // if (!receiptPhoto) {
-    //   errors.push('Receipt photo is required');
-    // }
+    if (formData.notes && formData.notes.length > 500) {
+      errors.push('Notes must be less than 500 characters');
+    }
 
     return errors;
   };
@@ -350,25 +350,31 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
           
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className="text-white text-sm font-medium mb-2 block">
+              <label htmlFor="mileage-input" className="text-white text-sm font-medium mb-2 block">
                 Mileage
               </label>
               <Input
+                id="mileage-input"
                 type="number"
                 value={formData.mileage}
                 onChange={(e) => handleInputChange('mileage', e.target.value)}
                 placeholder="Current mileage"
                 className="bg-white/5 border-white/20 text-white placeholder-slate-400 focus:border-blue-400/50 focus:ring-blue-400/20"
                 inputMode="numeric"
+                min="1"
+                max="1000000"
+                required
+                aria-label="Vehicle mileage"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-white text-sm font-medium mb-2 block">
+                <label htmlFor="fuel-amount-input" className="text-white text-sm font-medium mb-2 block">
                   Fuel Amount (Gallons)
                 </label>
                 <Input
+                  id="fuel-amount-input"
                   type="number"
                   step="0.01"
                   value={formData.fuelAmount}
@@ -376,14 +382,19 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
                   placeholder="0.00"
                   className="bg-white/5 border-white/20 text-white placeholder-slate-400 focus:border-blue-400/50 focus:ring-blue-400/20"
                   inputMode="decimal"
+                  min="0.01"
+                  max="1000"
+                  required
+                  aria-label="Fuel amount in gallons"
                 />
               </div>
 
               <div>
-                <label className="text-white text-sm font-medium mb-2 block">
+                <label htmlFor="fuel-cost-input" className="text-white text-sm font-medium mb-2 block">
                   Total Cost ($)
                 </label>
                 <Input
+                  id="fuel-cost-input"
                   type="number"
                   step="0.01"
                   value={formData.fuelCost}
@@ -391,6 +402,10 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
                   placeholder="0.00"
                   className="bg-white/5 border-white/20 text-white placeholder-slate-400 focus:border-blue-400/50 focus:ring-blue-400/20"
                   inputMode="decimal"
+                  min="0.01"
+                  max="10000"
+                  required
+                  aria-label="Total fuel cost in dollars"
                 />
               </div>
             </div>
@@ -449,18 +464,25 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
         {/* Additional Information */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
           <div className="space-y-4">
-            {/* Notes */}
             <div>
-              <label className="text-white text-sm font-medium mb-2 block">
+              <label htmlFor="notes-input" className="text-white text-sm font-medium mb-2 block">
                 Notes (Optional)
               </label>
               <Textarea
+                id="notes-input"
                 value={formData.notes}
                 onChange={(e) => handleInputChange('notes', e.target.value)}
                 placeholder="Add any additional notes..."
                 className="bg-white/5 border-white/20 text-white placeholder-slate-400 focus:border-blue-400/50 focus:ring-blue-400/20 min-h-[60px]"
                 rows={2}
+                maxLength={500}
+                aria-label="Additional notes about the fuel entry"
               />
+              {formData.notes && (
+                <p className="text-slate-400 text-xs mt-1">
+                  {formData.notes.length}/500 characters
+                </p>
+              )}
             </div>
           </div>
         </div>

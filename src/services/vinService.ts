@@ -26,10 +26,7 @@ class VinService {
   private cache = new Map<string, VehicleInfo>();
 
   async decodeVin(vin: string, accessToken?: string): Promise<VehicleInfo> {
-    // DEMO MODE - Return mock vehicle info immediately
     if (isDemoMode) {
-      console.log('🎭 Demo mode: Returning mock VIN decode');
-      
       const normalizedVin = vin.toUpperCase();
       const mockVehicleInfo: VehicleInfo = {
         vin: normalizedVin,
@@ -51,7 +48,7 @@ class VinService {
         valid: true,
         cached_at: new Date().toISOString()
       };
-      
+
       return Promise.resolve(mockVehicleInfo);
     }
 
@@ -79,7 +76,7 @@ class VinService {
       // If we have an access token, use the backend service (preferred)
       if (accessToken) {
         const { projectId } = await import('../utils/supabase/info');
-        
+
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-218dc5b7/decode-vin`,
           {
@@ -97,24 +94,18 @@ class VinService {
         }
 
         const vehicleData = await response.json();
-        
-        // Cache the result locally
+
         this.cache.set(normalizedVin, vehicleData);
-        
+
         return vehicleData;
       } else {
-        // Fallback to direct NHTSA API call (frontend only)
         return await this.directNhtsaCall(normalizedVin);
       }
-    } catch (error) {
-      console.error('VIN decode error:', error);
-      
-      // Fallback to direct NHTSA call if backend fails
+    } catch (error: unknown) {
       if (accessToken) {
-        console.log('Backend failed, trying direct NHTSA API call...');
         return await this.directNhtsaCall(normalizedVin);
       }
-      
+
       const errorInfo: VehicleInfo = {
         vin: normalizedVin,
         year: '',
@@ -124,7 +115,6 @@ class VinService {
         error: 'Failed to decode VIN'
       };
 
-      // Cache error result for 5 minutes to avoid repeated API calls
       setTimeout(() => this.cache.delete(normalizedVin), 5 * 60 * 1000);
       this.cache.set(normalizedVin, errorInfo);
 
@@ -177,13 +167,12 @@ class VinService {
       this.cache.set(vin, vehicleInfo);
 
       return vehicleInfo;
-    } catch (error) {
-      console.error('Direct NHTSA call error:', error);
+    } catch (error: unknown) {
       throw error;
     }
   }
 
-  private findResult(results: any[], variableName: string): string {
+  private findResult(results: Array<{ Variable: string; Value: string }>, variableName: string): string {
     const result = results.find(r => r.Variable === variableName);
     return result?.Value || '';
   }
@@ -217,8 +206,7 @@ class VinService {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error('Get cached vehicle error:', error);
+    } catch (error: unknown) {
       return null;
     }
   }

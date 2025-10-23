@@ -82,13 +82,10 @@ class FuelService {
   ];
 
   async submitFuelEntry(
-    entryData: CreateFuelEntryData, 
+    entryData: CreateFuelEntryData,
     token: string
   ): Promise<FuelEntry | null> {
-    // DEMO MODE - Return immediately with mock entry
     if (isDemoMode) {
-      console.log('🎭 Demo mode: Creating mock fuel entry immediately');
-      
       const newEntry: FuelEntry = {
         id: `demo-${Date.now()}`,
         userId: 'demo-porter',
@@ -106,14 +103,12 @@ class FuelService {
         submittedAt: new Date().toISOString()
       };
 
-      // Add to demo entries
       this.demoEntries.unshift(newEntry);
-      
+
       return Promise.resolve(newEntry);
     }
 
     try {
-      // PRODUCTION MODE - Use real backend
       const response = await fetch(`${this.baseUrl}/fuel-entries`, {
         method: 'POST',
         headers: {
@@ -130,21 +125,18 @@ class FuelService {
       }
 
       return data;
-    } catch (error) {
-      console.error('Submit fuel entry error:', error);
-      throw error;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Submit fuel entry error: ${errorMessage}`);
     }
   }
 
   async getUserFuelEntries(token: string): Promise<FuelEntry[]> {
-    // DEMO MODE - Return immediately with mock entries
     if (isDemoMode) {
-      console.log('🎭 Demo mode: Returning mock fuel entries immediately');
       return Promise.resolve([...this.demoEntries]);
     }
 
     try {
-      // PRODUCTION MODE - Use real backend
       const response = await fetch(`${this.baseUrl}/fuel-entries`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -158,27 +150,23 @@ class FuelService {
       }
 
       return data;
-    } catch (error) {
-      console.error('Get fuel entries error:', error);
+    } catch (error: unknown) {
       return [];
     }
   }
 
   async uploadPhoto(
-    photo: File, 
+    photo: File,
     token: string
   ): Promise<{ url: string; path: string } | { error: string }> {
     try {
-      // DEMO MODE - Return mock URL
       if (isDemoMode) {
-        console.log('🎭 Demo mode: Mock photo upload');
-        return { 
-          url: 'https://via.placeholder.com/300x200?text=Demo+Receipt', 
-          path: 'demo/receipt.jpg' 
+        return {
+          url: 'https://via.placeholder.com/300x200?text=Demo+Receipt',
+          path: 'demo/receipt.jpg'
         };
       }
 
-      // PRODUCTION MODE - Use real backend
       const formData = new FormData();
       formData.append('photo', photo);
 
@@ -197,8 +185,7 @@ class FuelService {
       }
 
       return { url: data.url, path: data.path };
-    } catch (error) {
-      console.error('Upload photo error:', error);
+    } catch (error: unknown) {
       return { error: 'Network error while uploading photo' };
     }
   }

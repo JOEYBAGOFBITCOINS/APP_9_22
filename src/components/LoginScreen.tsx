@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { GlassmorphicButton } from './GlassmorphicButton';
 import { Input } from './ui/input';
-import { Mail, Lock, Shield, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { napletonLogo } from '../media/logo';
 import { toast } from 'sonner@2.0.3';
@@ -28,53 +28,38 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignUp }) =
     e.preventDefault();
     setIsLoading(true);
 
-    console.log('🔔 LoginScreen - handleSubmit called');
-    console.log('📝 isSignUpMode:', isSignUpMode);
-    console.log('📧 Email:', email);
-    console.log('👤 Name:', name);
-
     try {
-      // Validate required fields
       if (!email.trim() || !password.trim()) {
-        console.log('❌ Validation failed: missing email or password');
         toast.error('Please enter both email and password');
         setIsLoading(false);
         return;
       }
 
       if (isSignUpMode) {
-        console.log('✏️ Sign-up mode detected');
         if (!name.trim()) {
-          console.log('❌ Validation failed: missing name');
           toast.error('Please enter your full name');
           setIsLoading(false);
           return;
         }
-        console.log('⏳ Calling onSignUp...');
         const success = await onSignUp(email, password, name);
-        console.log('📦 onSignUp result:', success);
         if (success) {
-          console.log('✅ Signup successful, switching to login mode');
           setIsSignUpMode(false);
           setName('');
           setPassword('');
           toast.success('Account created! Please sign in.');
-        } else {
-          console.log('❌ Signup failed');
         }
       } else {
-        console.log('🔑 Login mode detected');
         const result = await onLogin(email, password);
-        
+
         if (result) {
-          toast.success('✅ Login successful!');
+          toast.success('Login successful!');
         } else {
           toast.error('Login failed. Check credentials or try Quick Access button below.');
         }
       }
-    } catch (error) {
-      console.error('💥 Exception in handleSubmit:', error);
-      toast.error(`Login error: ${error.message || 'Try Quick Access button below'}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Try Quick Access button below';
+      toast.error(`Login error: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -112,57 +97,64 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignUp }) =
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
             <div className="space-y-4">
-              {/* Name Field - Only for Signup */}
               {isSignUpMode && (
                 <div className="space-y-2">
-                  <label className="text-white text-sm font-medium">
+                  <label htmlFor="name-input" className="text-white text-sm font-medium">
                     Full Name
                   </label>
                   <Input
+                    id="name-input"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your full name"
                     className="bg-white/5 border-white/20 text-white placeholder-slate-400 focus:border-blue-400/50 focus:ring-blue-400/20"
+                    autoComplete="name"
+                    aria-label="Full name"
                   />
                 </div>
               )}
 
-              {/* Email Field */}
               <div className="space-y-2">
-                <label className="text-white text-sm font-medium flex items-center">
+                <label htmlFor="email-input" className="text-white text-sm font-medium flex items-center">
                   <Mail className="w-4 h-4 mr-2" />
                   Email Address
                 </label>
                 <Input
+                  id="email-input"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your.email@example.com"
                   className="bg-white/5 border-white/20 text-white placeholder-slate-400 focus:border-blue-400/50 focus:ring-blue-400/20"
                   required
+                  autoComplete="email"
+                  aria-label="Email address"
                 />
               </div>
 
-              {/* Password Field */}
               <div className="space-y-2">
-                <label className="text-white text-sm font-medium flex items-center">
+                <label htmlFor="password-input" className="text-white text-sm font-medium flex items-center">
                   <Lock className="w-4 h-4 mr-2" />
                   Password
                 </label>
                 <div className="relative">
                   <Input
+                    id="password-input"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     className="bg-white/5 border-white/20 text-white placeholder-slate-400 focus:border-blue-400/50 focus:ring-blue-400/20 pr-10"
                     required
+                    autoComplete={isSignUpMode ? 'new-password' : 'current-password'}
+                    aria-label="Password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -224,14 +216,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignUp }) =
             <button
               type="button"
               onClick={() => {
-                console.log('🔄 Toggling signup mode from:', isSignUpMode, 'to:', !isSignUpMode);
                 setIsSignUpMode(!isSignUpMode);
                 toast.info(isSignUpMode ? 'Switched to login mode' : 'Switched to signup mode');
               }}
               className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
             >
-              {isSignUpMode 
-                ? 'Already have an account? Sign in' 
+              {isSignUpMode
+                ? 'Already have an account? Sign in'
                 : "Don't have an account? Create one"
               }
             </button>
