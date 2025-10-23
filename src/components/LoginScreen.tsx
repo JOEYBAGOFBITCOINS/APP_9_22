@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GlassmorphicButton } from './GlassmorphicButton';
 import { Input } from './ui/input';
-import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { napletonLogo } from '../media/logo';
 import { toast } from 'sonner@2.0.3';
@@ -178,7 +178,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignUp }) =
                   </div>
                 ) : (
                   <>
-                    <Shield className="w-5 h-5 mr-2" />
+                    <ShieldCheck className="w-5 h-5 mr-2" />
                     {isSignUpMode ? 'Create Account' : 'Sign In'}
                   </>
                 )}
