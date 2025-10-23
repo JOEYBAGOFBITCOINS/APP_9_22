@@ -121,14 +121,14 @@ export default function App() {
           }
 
           toast.success(`Welcome ${mockUser.name}!`);
-        }, 3000);
+        }, 10500);
         return;
       }
 
       setTimeout(() => {
         setCurrentScreen('login');
         setIsLoading(false);
-      }, 3000);
+      }, 10500);
     };
 
     initializeApp();
