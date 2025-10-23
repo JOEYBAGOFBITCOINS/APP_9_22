@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { vinService, VehicleInfo } from '../services/vinService';
 import { toast } from 'sonner@2.0.3';
 import { supabase } from '../utils/supabase/client';
+import { logger } from '../utils/logger';
 
 interface VehicleIdentificationProps {
   onVehicleIdentified: (data: {
@@ -45,7 +46,7 @@ export const VehicleIdentification: React.FC<VehicleIdentificationProps> = ({
           setAccessToken(session.access_token);
         }
       } catch (error) {
-        console.error('Failed to get access token:', error);
+        logger.error('Failed to get access token', error instanceof Error ? error : new Error(String(error)));
       }
     };
     
@@ -73,7 +74,7 @@ export const VehicleIdentification: React.FC<VehicleIdentificationProps> = ({
         toast.warning(decoded.error);
       }
     } catch (error) {
-      console.error('VIN decode error:', error);
+      logger.error('VIN decode error', error instanceof Error ? error : new Error(String(error)));
       toast.error('Failed to decode VIN');
     } finally {
       setIsDecodingVin(false);

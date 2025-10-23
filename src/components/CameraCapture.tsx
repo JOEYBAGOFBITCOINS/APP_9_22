@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { X, Camera, RotateCcw, FlashlightIcon as Flashlight } from 'lucide-react';
 import { Button } from './ui/button';
 import { toast } from 'sonner@2.0.3';
+import { logger } from '../utils/logger';
 
 interface CameraCaptureProps {
   isOpen: boolean;
@@ -66,10 +67,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
           setHasFlashlight(true);
         }
       }
-    } catch (err: any) {
-      console.error('Camera error:', err);
-      
-      if (err.name === 'NotAllowedError') {
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error('Camera error', error);
+
+      if (error.name === 'NotAllowedError') {
         setError('Camera permission denied. Please allow camera access and try again.');
       } else if (err.name === 'NotFoundError') {
         setError('No camera found on this device.');
@@ -130,7 +132,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         });
         setFlashlightOn(!flashlightOn);
       } catch (err) {
-        console.error('Flashlight toggle error:', err);
+        logger.error('Flashlight toggle error', err instanceof Error ? err : new Error(String(err)));
         toast.error('Unable to toggle flashlight');
       }
     }

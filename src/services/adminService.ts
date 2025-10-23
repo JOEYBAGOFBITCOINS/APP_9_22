@@ -1,89 +1,73 @@
 import { projectId } from '../utils/supabase/info';
 import { isDemoMode, demoUsers } from '../utils/supabase/safe-demo-config';
 import { User } from './authService';
+import { ApiClient } from '../utils/api-client';
+import { logger } from '../utils/logger';
 
 class AdminService {
   private baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-218dc5b7`;
+  private apiClient: ApiClient;
+
+  constructor() {
+    this.apiClient = new ApiClient(this.baseUrl);
+  }
 
   async getAllUsers(token: string): Promise<{ users: User[] } | { error: string }> {
     // DEMO MODE - Return demo users immediately
     if (isDemoMode) {
-      console.log('🎭 Demo mode: Returning demo users');
+      logger.debug('Demo mode: Returning demo users');
       return Promise.resolve({ users: [...demoUsers] });
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/admin/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.error || 'Failed to fetch users' };
-      }
+      const data = await this.apiClient.get<User[]>(
+        '/admin/users',
+        { 'Authorization': `Bearer ${token}` }
+      );
 
       return { users: data };
     } catch (error) {
-      console.error('Get users error:', error);
+      logger.error('Failed to fetch users', error);
       return { error: 'Network error while fetching users' };
     }
   }
 
   async updateUserRole(
-    userId: string, 
-    role: 'admin' | 'porter', 
+    userId: string,
+    role: 'admin' | 'porter',
     token: string
   ): Promise<{ user: User } | { error: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/admin/users/${userId}/role`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ role })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.error || 'Failed to update user role' };
-      }
+      const data = await this.apiClient.put<User>(
+        `/admin/users/${userId}/role`,
+        { role },
+        { 'Authorization': `Bearer ${token}` }
+      );
 
       return { user: data };
     } catch (error) {
-      console.error('Update user role error:', error);
+      logger.error('Failed to update user role', error, { userId, role });
       return { error: 'Network error while updating user role' };
     }
   }
 
   async deleteUser(userId: string, token: string): Promise<{ success: boolean } | { error: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/admin/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.error || 'Failed to delete user' };
-      }
+      await this.apiClient.delete(
+        `/admin/users/${userId}`,
+        { 'Authorization': `Bearer ${token}` }
+      );
 
       return { success: true };
     } catch (error) {
-      console.error('Delete user error:', error);
+      logger.error('Failed to delete user', error, { userId });
       return { error: 'Network error while deleting user' };
     }
   }
 
   async exportData(token: string): Promise<void> {
     try {
+      logger.info('Exporting data');
       const response = await fetch(`${this.baseUrl}/admin/export`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -104,8 +88,9 @@ class AdminService {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      logger.info('Data export successful');
     } catch (error) {
-      console.error('Export data error:', error);
+      logger.error('Failed to export data', error);
       throw new Error('Failed to export data');
     }
   }
