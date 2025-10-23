@@ -1,0 +1,20 @@
+{
+  "name": "FuelTrakr - Napleton Automotive",
+  "short_name": "FuelTrakr",
+  "description": "Sophisticated fuel expense tracking app for Napleton Automotive Group",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false
+}
