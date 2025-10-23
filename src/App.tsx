@@ -8,8 +8,9 @@ import { Toaster } from 'sonner@2.0.3';
 import { authService, User } from './services/authService';
 import { fuelService, FuelEntry as BackendFuelEntry } from './services/fuelService';
 import { toast } from 'sonner@2.0.3';
-import { isDemoMode, skipAuth, autoLogin, defaultUserRole, debugMode } from './utils/supabase/safe-demo-config';
+import { isDemoMode, skipAuth, autoLogin, defaultUserRole } from './utils/supabase/safe-demo-config';
 import { enableCameraErrorSuppression } from './utils/suppress-camera-errors';
+import { SPLASH_SCREEN_DURATION } from './utils/constants';
 
 // Frontend FuelEntry interface for compatibility with existing components
 export interface FuelEntry {
@@ -65,14 +66,14 @@ export default function App() {
           setIsLoading(false);
 
           toast.success(`Welcome ${mockUser.name}!`);
-        }, 10500);
+        }, SPLASH_SCREEN_DURATION);
         return;
       }
 
       setTimeout(() => {
         setCurrentScreen('login');
         setIsLoading(false);
-      }, 10500);
+      }, SPLASH_SCREEN_DURATION);
     };
 
     initializeApp();

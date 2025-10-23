@@ -5,6 +5,7 @@ import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { napletonLogo } from '../media/logo';
 import { toast } from 'sonner@2.0.3';
+import { isDemoMode, demoUsers } from '../utils/supabase/safe-demo-config';
 
 
 interface LoginScreenProps {
@@ -188,45 +189,47 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignUp }) =
           </div>
         </form>
 
-        {/* Quick Access Buttons */}
-        <div className="mt-6 space-y-3">
-          {/* Guest Mode Button */}
-          <GlassmorphicButton
-            type="button"
-            variant="secondary"
-            size="large"
-            className="w-full"
-            onClick={async () => {
-              setIsLoading(true);
-              const success = await onLogin('porter@napleton.com', 'porter123');
-              if (!success) {
-                // Try admin credentials as fallback
-                await onLogin('admin@napleton.com', 'admin123');
-              }
-              setIsLoading(false);
-            }}
-          >
-            <span className="flex items-center justify-center">
-              🚀 Quick Access (Porter Mode)
-            </span>
-          </GlassmorphicButton>
-
-          {/* Toggle between Login/Signup */}
-          <div className="text-center">
-            <button
+        {/* Quick Access Buttons - Only show in demo mode */}
+        {isDemoMode && (
+          <div className="mt-6 space-y-3">
+            {/* Quick Access Button for Demo */}
+            <GlassmorphicButton
               type="button"
-              onClick={() => {
-                setIsSignUpMode(!isSignUpMode);
-                toast.info(isSignUpMode ? 'Switched to login mode' : 'Switched to signup mode');
+              variant="secondary"
+              size="large"
+              className="w-full"
+              onClick={async () => {
+                setIsLoading(true);
+                const porterUser = demoUsers.find(u => u.role === 'porter');
+                if (porterUser) {
+                  setEmail(porterUser.email);
+                  toast.info(`Demo mode: Auto-filling ${porterUser.role} credentials`);
+                }
+                setIsLoading(false);
               }}
-              className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
             >
-              {isSignUpMode
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Create one"
-              }
-            </button>
+              <span className="flex items-center justify-center">
+                🚀 Quick Access (Demo Mode)
+              </span>
+            </GlassmorphicButton>
           </div>
+        )}
+
+        {/* Toggle between Login/Signup */}
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUpMode(!isSignUpMode);
+              toast.info(isSignUpMode ? 'Switched to login mode' : 'Switched to signup mode');
+            }}
+            className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
+          >
+            {isSignUpMode
+              ? 'Already have an account? Sign in'
+              : "Don't have an account? Create one"
+            }
+          </button>
         </div>
 
 

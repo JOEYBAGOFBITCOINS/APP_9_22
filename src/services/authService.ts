@@ -1,6 +1,8 @@
 import { supabase } from '../utils/supabase/client'
 import { projectId, publicAnonKey } from '../utils/supabase/info'
-import { isDemoMode, demoUsers, demoCredentials, debugMode } from '../utils/supabase/safe-demo-config'
+import { isDemoMode, demoUsers, demoCredentials } from '../utils/supabase/safe-demo-config'
+import { ApiClient } from '../utils/api-client'
+import { logger } from '../utils/logger'
 
 export interface User {
   id: string;
@@ -11,10 +13,20 @@ export interface User {
 
 class AuthService {
   private baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-218dc5b7`;
+  private apiClient: ApiClient;
+
+  constructor() {
+    this.apiClient = new ApiClient(this.baseUrl, {
+      'Authorization': `Bearer ${publicAnonKey}`
+    });
+  }
 
   async signUp(email: string, password: string, name: string): Promise<{ user: User } | { error: string }> {
     try {
+      logger.info('Attempting user signup', { email });
+
       if (isDemoMode) {
+        logger.debug('Demo mode: Creating mock user');
         return {
           user: {
             id: 'demo-new-user',
@@ -25,31 +37,31 @@ class AuthService {
         };
       }
 
-      const response = await fetch(`${this.baseUrl}/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({ email, password, name })
-      });
+      const data = await this.apiClient.post<{ user: User; error?: string }>(
+        '/signup',
+        { email, password, name }
+      );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.error || 'Failed to create account' };
+      if (data.error) {
+        logger.warn('Signup failed', { error: data.error, email });
+        return { error: data.error };
       }
 
+      logger.info('Signup successful', { email });
       return { user: data.user };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      logger.error('Network error during signup', error, { email });
       return { error: `Network error during signup: ${errorMessage}` };
     }
   }
 
   async signIn(email: string, password: string): Promise<{ user: User; accessToken: string } | { error: string }> {
     try {
+      logger.info('Attempting user signin', { email });
+
       if (isDemoMode) {
+        logger.debug('Demo mode: Checking credentials');
         const normalizedEmail = email.toLowerCase().trim();
         const validPassword = demoCredentials[normalizedEmail as keyof typeof demoCredentials];
 
@@ -57,6 +69,7 @@ class AuthService {
           const demoUser = demoUsers.find(user => user.email === normalizedEmail);
 
           if (demoUser) {
+            logger.info('Demo mode signin successful', { email, role: demoUser.role });
             return {
               user: demoUser,
               accessToken: `demo-token-${demoUser.role}`
@@ -64,31 +77,21 @@ class AuthService {
           }
         }
 
-        const testCredentials = [
-          { username: 'admin', password: 'admin123', email: 'admin@napleton.com', name: 'Admin User', role: 'admin' as const },
-          { username: 'porter', password: 'porter123', email: 'porter@napleton.com', name: 'Porter User', role: 'porter' as const }
-        ];
-
-        const testUser = testCredentials.find(cred =>
-          (normalizedEmail === cred.username.toLowerCase() || normalizedEmail === cred.email.toLowerCase()) &&
-          password === cred.password
+        // Fallback to basic demo user validation
+        const testUser = demoUsers.find(user =>
+          user.email.toLowerCase() === normalizedEmail
         );
 
         if (testUser) {
-          const mockUser: User = {
-            id: `demo-${testUser.role}`,
-            email: testUser.email,
-            name: testUser.name,
-            role: testUser.role
-          };
-
+          logger.info('Demo mode signin successful (fallback)', { email, role: testUser.role });
           return {
-            user: mockUser,
+            user: testUser,
             accessToken: `demo-token-${testUser.role}`
           };
         }
 
-        return { error: 'Invalid demo credentials. Use admin@napleton.com/admin123 or porter@napleton.com/porter123' };
+        logger.warn('Invalid demo credentials', { email });
+        return { error: 'Invalid demo credentials. Please check your email and password.' };
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -97,9 +100,10 @@ class AuthService {
       });
 
       if (error) {
+        logger.warn('Supabase signin failed', { error: error.message, email });
         if (error.message.includes('Invalid login credentials')) {
           return {
-            error: 'Invalid login credentials. Supabase authentication is not fully configured yet. Please enable demo mode in your .env file (VITE_DEMO_MODE=true) or create a user account in Supabase first. Demo credentials: admin@napleton.com / admin123'
+            error: 'Invalid login credentials. Please check your email and password, or enable demo mode in your environment configuration.'
           };
         }
 
@@ -107,26 +111,22 @@ class AuthService {
       }
 
       if (!data.session) {
+        logger.error('No session created after signin', undefined, { email });
         return { error: 'No session created' };
       }
 
-      const profileResponse = await fetch(`${this.baseUrl}/profile`, {
-        headers: {
-          'Authorization': `Bearer ${data.session.access_token}`
-        }
-      });
+      const profile = await this.apiClient.get<User>(
+        '/profile',
+        { 'Authorization': `Bearer ${data.session.access_token}` }
+      );
 
-      if (!profileResponse.ok) {
-        return { error: 'Failed to fetch user profile' };
-      }
-
-      const profile = await profileResponse.json();
-
+      logger.info('Signin successful', { email });
       return {
         user: profile,
         accessToken: data.session.access_token
       };
     } catch (error: unknown) {
+      logger.error('Network error during signin', error, { email });
       return { error: 'Network error during sign in. Please check your connection or enable demo mode.' };
     }
   }
@@ -134,59 +134,64 @@ class AuthService {
   async getSession(): Promise<{ user: User; accessToken: string } | null> {
     // DEMO MODE - Return immediately with no session to avoid timeouts
     if (isDemoMode) {
+      logger.debug('Demo mode: Skipping session check');
       return Promise.resolve(null);
     }
 
     try {
+      logger.debug('Checking for existing session');
       // PRODUCTION MODE
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error || !session) {
+        logger.debug('No active session found');
         return null;
       }
 
-      // Get user profile from backend
-      const profileResponse = await fetch(`${this.baseUrl}/profile`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
+      // Get user profile from backend with retry logic
+      const profile = await this.apiClient.get<User>(
+        '/profile',
+        { 'Authorization': `Bearer ${session.access_token}` }
+      );
 
-      if (!profileResponse.ok) {
-        return null;
-      }
-
-      const profile = await profileResponse.json();
-
+      logger.debug('Session restored successfully');
       return {
         user: profile,
         accessToken: session.access_token
       };
     } catch (error) {
+      logger.warn('Failed to restore session', { error });
       return null;
     }
   }
 
   async signOut(): Promise<void> {
+    logger.info('User signing out');
     // DEMO MODE - Just log out
     if (isDemoMode) {
+      logger.debug('Demo mode: Skipping Supabase signout');
       return;
     }
 
     // PRODUCTION MODE
     await supabase.auth.signOut();
+    logger.info('Signout successful');
   }
 
   async refreshToken(): Promise<string | null> {
     try {
+      logger.debug('Attempting to refresh token');
       const { data, error } = await supabase.auth.refreshSession();
-      
+
       if (error || !data.session) {
+        logger.warn('Token refresh failed', { error });
         return null;
       }
 
+      logger.debug('Token refreshed successfully');
       return data.session.access_token;
     } catch (error) {
+      logger.error('Error refreshing token', error);
       return null;
     }
   }

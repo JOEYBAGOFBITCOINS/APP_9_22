@@ -77,11 +77,13 @@ const getSafeConfig = () => {
 
 const config = getSafeConfig();
 
-export const isDemoMode = false;
-export const skipAuth = false;
-export const autoLogin = false;
+// Export the computed configuration values instead of hardcoded false
+export const isDemoMode = config.isDemoMode;
+export const skipAuth = config.skipAuth;
+export const autoLogin = config.autoLogin;
 export const defaultUserRole = config.defaultUserRole;
 export const debugMode = config.debugMode;
+
 export const demoUsers = [
   {
     id: 'demo-admin',
@@ -91,14 +93,15 @@ export const demoUsers = [
   },
   {
     id: 'demo-porter',
-    email: 'porter@napleton.com', 
+    email: 'porter@napleton.com',
     name: 'John Porter',
     role: 'porter' as const
   }
 ];
 
-// Demo credentials for testing
-export const demoCredentials = {
+// Demo credentials - only available in demo mode
+// In production, these should be managed through environment variables or removed entirely
+export const demoCredentials = isDemoMode ? {
   'admin@napleton.com': 'admin123',
   'porter@napleton.com': 'porter123'
-};
+} : {};

@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { GlassmorphicButton } from './GlassmorphicButton';
+import { logger } from '../utils/logger';
 
 interface Props {
   children: ReactNode;
@@ -29,9 +30,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error caught by boundary:', error, errorInfo);
-    }
+    // Log error with context
+    logger.error('Error caught by boundary', error, {
+      componentStack: errorInfo.componentStack
+    });
   }
 
   handleReset = (): void => {
