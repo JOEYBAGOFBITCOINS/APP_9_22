@@ -77,9 +77,9 @@ const getSafeConfig = () => {
 
 const config = getSafeConfig();
 
-export const isDemoMode = false;
-export const skipAuth = false;
-export const autoLogin = false;
+export const isDemoMode = config.isDemoMode;
+export const skipAuth = config.skipAuth;
+export const autoLogin = config.autoLogin;
 export const defaultUserRole = config.defaultUserRole;
 export const debugMode = config.debugMode;
 export const demoUsers = [

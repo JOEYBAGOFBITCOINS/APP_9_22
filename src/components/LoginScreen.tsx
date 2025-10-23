@@ -5,6 +5,7 @@ import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { napletonLogo } from '../media/logo';
 import { toast } from 'sonner@2.0.3';
+import { isDemoMode, demoCredentials } from '../utils/supabase/safe-demo-config';
 
 
 interface LoginScreenProps {
@@ -190,26 +191,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignUp }) =
 
         {/* Quick Access Buttons */}
         <div className="mt-6 space-y-3">
-          {/* Guest Mode Button */}
-          <GlassmorphicButton
-            type="button"
-            variant="secondary"
-            size="large"
-            className="w-full"
-            onClick={async () => {
-              setIsLoading(true);
-              const success = await onLogin('porter@napleton.com', 'porter123');
-              if (!success) {
-                // Try admin credentials as fallback
-                await onLogin('admin@napleton.com', 'admin123');
-              }
-              setIsLoading(false);
-            }}
-          >
-            <span className="flex items-center justify-center">
-              🚀 Quick Access (Porter Mode)
-            </span>
-          </GlassmorphicButton>
+          {/* Demo Mode Quick Access - Only shown when demo mode is enabled */}
+          {isDemoMode && (
+            <GlassmorphicButton
+              type="button"
+              variant="secondary"
+              size="large"
+              className="w-full"
+              onClick={async () => {
+                setIsLoading(true);
+                const porterEmail = 'porter@napleton.com';
+                const adminEmail = 'admin@napleton.com';
+                const porterPassword = demoCredentials[porterEmail as keyof typeof demoCredentials];
+                const adminPassword = demoCredentials[adminEmail as keyof typeof demoCredentials];
+
+                const success = await onLogin(porterEmail, porterPassword);
+                if (!success) {
+                  // Try admin credentials as fallback
+                  await onLogin(adminEmail, adminPassword);
+                }
+                setIsLoading(false);
+              }}
+            >
+              <span className="flex items-center justify-center">
+                🚀 Quick Access (Porter Mode)
+              </span>
+            </GlassmorphicButton>
+          )}
 
           {/* Toggle between Login/Signup */}
           <div className="text-center">

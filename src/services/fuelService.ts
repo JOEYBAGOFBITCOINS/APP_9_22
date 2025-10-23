@@ -143,15 +143,26 @@ class FuelService {
         }
       });
 
-      const data = await response.json();
-
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch fuel entries');
+        // Try to parse error message from response
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to fetch fuel entries (${response.status})`);
+        } catch {
+          // If JSON parsing fails, use status text
+          throw new Error(`Failed to fetch fuel entries: ${response.statusText} (${response.status})`);
+        }
       }
 
+      const data = await response.json();
       return data;
     } catch (error: unknown) {
-      return [];
+      // Re-throw the error so it can be handled by the caller
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('An unknown error occurred while fetching fuel entries');
     }
   }
 

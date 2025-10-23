@@ -49,7 +49,7 @@ export default function App() {
 
     const initializeApp = async () => {
       if (skipAuth && autoLogin) {
-        setTimeout(() => {
+        setTimeout(async () => {
           const mockUser: User = {
             id: `dev-${defaultUserRole}-user`,
             email: `${defaultUserRole}@napleton.com`,
@@ -57,12 +57,19 @@ export default function App() {
             role: defaultUserRole as 'admin' | 'porter'
           };
 
+          const mockToken = `dev-token-${defaultUserRole}`;
+
           setCurrentUser(mockUser);
-          setAccessToken(`dev-token-${defaultUserRole}`);
+          setAccessToken(mockToken);
           setIsGuestMode(false);
           setCurrentScreen('main');
-          setShowFuelEntryForm(true);
+          setShowFuelEntryForm(false);  // Changed to false - don't auto-show form
           setIsLoading(false);
+
+          // Load fuel entries for auto-login user
+          if (isDemoMode) {
+            await loadUserFuelEntries(mockToken);
+          }
 
           toast.success(`Welcome ${mockUser.name}!`);
         }, 10500);
@@ -87,9 +94,10 @@ export default function App() {
         setAccessToken(result.accessToken);
         setIsGuestMode(false);
         setCurrentScreen('main');
-        setShowFuelEntryForm(true);
+        setShowFuelEntryForm(false);  // Changed to false - don't auto-show form
 
-        loadUserFuelEntries(result.accessToken).catch(() => {});
+        // Load user's fuel entries after successful login
+        await loadUserFuelEntries(result.accessToken);
 
         toast.success(`Welcome back, ${result.user.name}!`);
         return true;
@@ -140,6 +148,10 @@ export default function App() {
   // Load user's fuel entries from backend
   const loadUserFuelEntries = async (token: string) => {
     try {
+      if (debugMode) {
+        console.log('Loading user fuel entries...');
+      }
+
       const entries = await fuelService.getUserFuelEntries(token);
       const convertedEntries: FuelEntry[] = entries.map((entry: BackendFuelEntry) => ({
         id: entry.id,
@@ -157,10 +169,28 @@ export default function App() {
         vinPhoto: entry.vinPhoto,
         submittedAt: new Date(entry.submittedAt)
       }));
+
       setFuelEntries(convertedEntries);
+
+      if (debugMode) {
+        console.log(`Loaded ${convertedEntries.length} fuel entries`);
+      }
+
+      // Show success toast if entries were found
+      if (convertedEntries.length > 0) {
+        toast.success(`Loaded ${convertedEntries.length} fuel ${convertedEntries.length === 1 ? 'entry' : 'entries'}`);
+      }
     } catch (error) {
       // Set empty array on error to prevent issues
       setFuelEntries([]);
+
+      // Show error to user
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to load fuel entries: ${errorMessage}`);
+
+      if (debugMode) {
+        console.error('Error loading fuel entries:', error);
+      }
     }
   };
 

@@ -103,8 +103,13 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
   };
 
   const handleSubmit = () => {
+    // Prevent double submission
+    if (isSubmitting) {
+      return;
+    }
+
     const errors = validateForm();
-    
+
     if (errors.length > 0) {
       errors.forEach(error => toast.error(error));
       return;
@@ -112,8 +117,7 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
 
     setIsSubmitting(true);
 
-    // Simulate submission delay
-    setTimeout(() => {
+    try {
       const entryData = {
         stockNumber: vehicleData.stockNumber || formData.stockNumber || undefined,
         vin: vehicleData.vin || undefined,
@@ -128,9 +132,13 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
       };
 
       setSubmittedEntry(entryData);
-      setIsSubmitting(false);
       setShowConfirmation(true);
-    }, 2000);
+    } catch (error) {
+      toast.error('Failed to prepare entry data');
+      console.error('Error preparing entry:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleVehicleIdentified = (data: {
@@ -152,9 +160,20 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
     setCurrentStep('vehicle');
   };
 
-  const handleConfirmSubmission = () => {
-    if (submittedEntry) {
-      onSubmit(submittedEntry);
+  const handleConfirmSubmission = async () => {
+    if (!submittedEntry || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(submittedEntry);
+      // onSubmit will handle navigation and success toasts
+    } catch (error) {
+      toast.error('Failed to submit fuel entry');
+      console.error('Submission error:', error);
+      setIsSubmitting(false);
+      // Stay on confirmation screen so user can try again
     }
   };
 
@@ -259,15 +278,26 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
             size="large"
             onClick={handleConfirmSubmission}
             className="w-full"
+            disabled={isSubmitting}
           >
-            <Save className="w-5 h-5 mr-2" />
-            Confirm & Submit
+            {isSubmitting ? (
+              <div className="flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                Submitting...
+              </div>
+            ) : (
+              <>
+                <Save className="w-5 h-5 mr-2" />
+                Confirm & Submit
+              </>
+            )}
           </GlassmorphicButton>
-          
+
           <GlassmorphicButton
             variant="secondary"
             onClick={() => setShowConfirmation(false)}
             className="w-full"
+            disabled={isSubmitting}
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Back to Edit
@@ -495,11 +525,12 @@ export const FuelEntryForm: React.FC<FuelEntryFormProps> = ({
           size="large"
           onClick={handleSubmit}
           className="w-full"
+          disabled={isSubmitting}
         >
           {isSubmitting ? (
             <div className="flex items-center justify-center">
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-              Submitting...
+              Preparing Entry...
             </div>
           ) : (
             <>

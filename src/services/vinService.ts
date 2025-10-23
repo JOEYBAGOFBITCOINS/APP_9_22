@@ -22,8 +22,17 @@ interface VehicleInfo {
   error?: string;
 }
 
+interface CacheEntry {
+  data: VehicleInfo;
+  timestamp: number;
+  expiresAt: number;
+}
+
 class VinService {
-  private cache = new Map<string, VehicleInfo>();
+  private cache = new Map<string, CacheEntry>();
+  private readonly CACHE_TTL_SUCCESS = 24 * 60 * 60 * 1000; // 24 hours for successful decodes
+  private readonly CACHE_TTL_ERROR = 5 * 60 * 1000; // 5 minutes for errors
+  private readonly API_TIMEOUT = 10000; // 10 seconds timeout for API calls
 
   async decodeVin(vin: string, accessToken?: string): Promise<VehicleInfo> {
     if (isDemoMode) {
@@ -69,7 +78,14 @@ class VinService {
     // Check local cache first
     const cached = this.cache.get(normalizedVin);
     if (cached) {
-      return cached;
+      const now = Date.now();
+      if (now < cached.expiresAt) {
+        // Cache entry is still valid
+        return cached.data;
+      } else {
+        // Cache entry expired, remove it
+        this.cache.delete(normalizedVin);
+      }
     }
 
     try {
@@ -95,7 +111,13 @@ class VinService {
 
         const vehicleData = await response.json();
 
-        this.cache.set(normalizedVin, vehicleData);
+        // Cache with appropriate TTL
+        const ttl = vehicleData.valid ? this.CACHE_TTL_SUCCESS : this.CACHE_TTL_ERROR;
+        this.cache.set(normalizedVin, {
+          data: vehicleData,
+          timestamp: Date.now(),
+          expiresAt: Date.now() + ttl
+        });
 
         return vehicleData;
       } else {
@@ -115,8 +137,12 @@ class VinService {
         error: 'Failed to decode VIN'
       };
 
-      setTimeout(() => this.cache.delete(normalizedVin), 5 * 60 * 1000);
-      this.cache.set(normalizedVin, errorInfo);
+      // Cache error with short TTL
+      this.cache.set(normalizedVin, {
+        data: errorInfo,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + this.CACHE_TTL_ERROR
+      });
 
       return errorInfo;
     }
@@ -124,49 +150,70 @@ class VinService {
 
   private async directNhtsaCall(vin: string): Promise<VehicleInfo> {
     try {
-      const response = await fetch(
-        `https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`
-      );
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.API_TIMEOUT);
 
-      if (!response.ok) {
-        throw new Error('NHTSA API error');
+      try {
+        const response = await fetch(
+          `https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`,
+          { signal: controller.signal }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error('NHTSA API error');
+        }
+
+        const data = await response.json();
+        const results = data.Results || [];
+
+        // Extract vehicle information
+        const vehicleInfo: VehicleInfo = {
+          vin,
+          year: this.findResult(results, 'Model Year'),
+          make: this.findResult(results, 'Make'),
+          model: this.findResult(results, 'Model'),
+          trim: this.findResult(results, 'Trim'),
+          engine: this.findResult(results, 'Engine Model'),
+          displacement: this.findResult(results, 'Displacement (L)'),
+          cylinders: this.findResult(results, 'Engine Number of Cylinders'),
+          fuel_type: this.findResult(results, 'Fuel Type - Primary'),
+          vehicle_type: this.findResult(results, 'Vehicle Type'),
+          body_class: this.findResult(results, 'Body Class'),
+          drive_type: this.findResult(results, 'Drive Type'),
+          transmission: this.findResult(results, 'Transmission Style'),
+          manufacturer: this.findResult(results, 'Manufacturer Name'),
+          plant_city: this.findResult(results, 'Plant City'),
+          plant_state: this.findResult(results, 'Plant State'),
+          valid: false,
+          cached_at: new Date().toISOString()
+        };
+
+        // Determine if VIN decode was successful
+        vehicleInfo.valid = !!(vehicleInfo.year && vehicleInfo.make && vehicleInfo.model);
+        if (!vehicleInfo.valid) {
+          vehicleInfo.error = 'Vehicle information not found';
+        }
+
+        // Cache the result with appropriate TTL
+        const ttl = vehicleInfo.valid ? this.CACHE_TTL_SUCCESS : this.CACHE_TTL_ERROR;
+        this.cache.set(vin, {
+          data: vehicleInfo,
+          timestamp: Date.now(),
+          expiresAt: Date.now() + ttl
+        });
+
+        return vehicleInfo;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        // Check if it was a timeout/abort error
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('NHTSA API request timed out');
+        }
+        throw fetchError;
       }
-
-      const data = await response.json();
-      const results = data.Results || [];
-
-      // Extract vehicle information
-      const vehicleInfo: VehicleInfo = {
-        vin,
-        year: this.findResult(results, 'Model Year'),
-        make: this.findResult(results, 'Make'),
-        model: this.findResult(results, 'Model'),
-        trim: this.findResult(results, 'Trim'),
-        engine: this.findResult(results, 'Engine Model'),
-        displacement: this.findResult(results, 'Displacement (L)'),
-        cylinders: this.findResult(results, 'Engine Number of Cylinders'),
-        fuel_type: this.findResult(results, 'Fuel Type - Primary'),
-        vehicle_type: this.findResult(results, 'Vehicle Type'),
-        body_class: this.findResult(results, 'Body Class'),
-        drive_type: this.findResult(results, 'Drive Type'),
-        transmission: this.findResult(results, 'Transmission Style'),
-        manufacturer: this.findResult(results, 'Manufacturer Name'),
-        plant_city: this.findResult(results, 'Plant City'),
-        plant_state: this.findResult(results, 'Plant State'),
-        valid: false,
-        cached_at: new Date().toISOString()
-      };
-
-      // Determine if VIN decode was successful
-      vehicleInfo.valid = !!(vehicleInfo.year && vehicleInfo.make && vehicleInfo.model);
-      if (!vehicleInfo.valid) {
-        vehicleInfo.error = 'Vehicle information not found';
-      }
-
-      // Cache the result
-      this.cache.set(vin, vehicleInfo);
-
-      return vehicleInfo;
     } catch (error: unknown) {
       throw error;
     }
