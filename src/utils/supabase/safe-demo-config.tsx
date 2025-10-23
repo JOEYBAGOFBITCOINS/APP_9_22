@@ -75,21 +75,13 @@ const getSafeConfig = () => {
   return FALLBACK_CONFIG;
 };
 
-// Get configuration with all fallback strategies
 const config = getSafeConfig();
 
-// REAL AUTH MODE - Using Supabase authentication
-console.log('🔧 FuelTrakr Config:', config);
-console.log('🔧 Real authentication mode enabled');
-
-// Export configuration values - REAL AUTH ENABLED
-export const isDemoMode = false;  // Real Supabase authentication
-export const skipAuth = false;    // Require actual login
-export const autoLogin = false;   // Show login screen
+export const isDemoMode = false;
+export const skipAuth = false;
+export const autoLogin = false;
 export const defaultUserRole = config.defaultUserRole;
 export const debugMode = config.debugMode;
-
-// Demo users and credentials (always available)
 export const demoUsers = [
   {
     id: 'demo-admin',
