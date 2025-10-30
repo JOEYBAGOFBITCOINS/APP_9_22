@@ -2,7 +2,7 @@ import { Hono } from 'npm:hono'
 import { cors } from 'npm:hono/cors'
 import { logger } from 'npm:hono/logger'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { getElasticsearchClient, getIndexName, initializeIndices } from '../server/elasticsearch.tsx'
+import * as kv from '../server/kv_store.tsx'
 
 const app = new Hono()
 
@@ -20,25 +20,20 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
-// Initialize Elasticsearch client
-const esClient = getElasticsearchClient()
-const usersIndex = getIndexName('users')
-const fuelEntriesIndex = getIndexName('fuel_entries')
-
 // Initialize storage bucket
 const initStorage = async () => {
   const bucketName = 'make-218dc5b7-fueltrakr-photos'
   const { data: buckets } = await supabase.storage.listBuckets()
   const bucketExists = buckets?.some(bucket => bucket.name === bucketName)
-
+  
   if (!bucketExists) {
     const { error } = await supabase.storage.createBucket(bucketName, {
       public: false
     })
     if (error) {
-      console.log('⚠️  Error creating bucket:', error)
+      console.log('Error creating bucket:', error)
     } else {
-      console.log('✅ Storage bucket created successfully')
+      console.log('Storage bucket created successfully')
     }
   }
 }
@@ -47,7 +42,7 @@ const initStorage = async () => {
 const initDemoUsers = async () => {
   try {
     console.log('Initializing demo users...')
-
+    
     // Try to create admin user
     try {
       const { data: adminData, error: adminError } = await supabase.auth.admin.createUser({
@@ -58,24 +53,20 @@ const initDemoUsers = async () => {
       })
 
       if (!adminError && adminData.user) {
-        await esClient.index({
-          index: usersIndex,
+        await kv.set(`user:${adminData.user.id}`, {
           id: adminData.user.id,
-          document: {
-            id: adminData.user.id,
-            email: 'admin@napleton.com',
-            name: 'Admin User',
-            role: 'admin',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
+          email: 'admin@napleton.com',
+          name: 'Admin User',
+          role: 'admin',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         console.log('✅ Demo admin user created successfully')
       } else {
-        console.log('⚠️  Admin user creation error:', adminError?.message || 'Unknown error')
+        console.log('⚠️ Admin user creation error:', adminError?.message || 'Unknown error')
       }
     } catch (adminCreateError) {
-      console.log('⚠️  Admin user may already exist:', adminCreateError)
+      console.log('⚠️ Admin user may already exist:', adminCreateError)
     }
 
     // Try to create porter user
@@ -88,24 +79,20 @@ const initDemoUsers = async () => {
       })
 
       if (!porterError && porterData.user) {
-        await esClient.index({
-          index: usersIndex,
+        await kv.set(`user:${porterData.user.id}`, {
           id: porterData.user.id,
-          document: {
-            id: porterData.user.id,
-            email: 'porter@napleton.com',
-            name: 'John Porter',
-            role: 'porter',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
+          email: 'porter@napleton.com',
+          name: 'John Porter',
+          role: 'porter',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         console.log('✅ Demo porter user created successfully')
       } else {
-        console.log('⚠️  Porter user creation error:', porterError?.message || 'Unknown error')
+        console.log('⚠️ Porter user creation error:', porterError?.message || 'Unknown error')
       }
     } catch (porterCreateError) {
-      console.log('⚠️  Porter user may already exist:', porterCreateError)
+      console.log('⚠️ Porter user may already exist:', porterCreateError)
     }
 
     console.log('Demo users initialization complete')
@@ -116,12 +103,7 @@ const initDemoUsers = async () => {
 
 // Initialize on startup
 initStorage()
-initializeIndices().then(() => {
-  console.log('✅ Elasticsearch indices initialized')
-  initDemoUsers()
-}).catch(error => {
-  console.error('❌ Failed to initialize Elasticsearch indices:', error)
-})
+initDemoUsers()
 
 // Authentication middleware for protected routes
 const requireAuth = async (c: any, next: any) => {
@@ -141,21 +123,14 @@ const requireAuth = async (c: any, next: any) => {
 
 // Routes
 app.get('/health', (c) => {
-  return c.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    services: {
-      supabase: 'connected',
-      elasticsearch: 'connected'
-    }
-  })
+  return c.json({ status: 'healthy', timestamp: new Date().toISOString() })
 })
 
 // Setup demo users (can be called manually)
 app.post('/setup-demo-users', async (c) => {
   try {
     console.log('Manual demo user setup requested...')
-
+    
     const results = {
       admin: { success: false, message: '', id: null },
       porter: { success: false, message: '', id: null }
@@ -171,17 +146,13 @@ app.post('/setup-demo-users', async (c) => {
       })
 
       if (!adminError && adminData.user) {
-        await esClient.index({
-          index: usersIndex,
+        await kv.set(`user:${adminData.user.id}`, {
           id: adminData.user.id,
-          document: {
-            id: adminData.user.id,
-            email: 'admin@napleton.com',
-            name: 'Admin User',
-            role: 'admin',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
+          email: 'admin@napleton.com',
+          name: 'Admin User',
+          role: 'admin',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         results.admin = { success: true, message: 'Created successfully', id: adminData.user.id }
       } else {
@@ -201,17 +172,13 @@ app.post('/setup-demo-users', async (c) => {
       })
 
       if (!porterError && porterData.user) {
-        await esClient.index({
-          index: usersIndex,
+        await kv.set(`user:${porterData.user.id}`, {
           id: porterData.user.id,
-          document: {
-            id: porterData.user.id,
-            email: 'porter@napleton.com',
-            name: 'John Porter',
-            role: 'porter',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
+          email: 'porter@napleton.com',
+          name: 'John Porter',
+          role: 'porter',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         results.porter = { success: true, message: 'Created successfully', id: porterData.user.id }
       } else {
@@ -235,11 +202,11 @@ app.post('/setup-demo-users', async (c) => {
 app.post('/signup', async (c) => {
   try {
     const { email, password, name } = await c.req.json()
-
+    
     // Validate Napleton email domain
     if (!email.endsWith('@napleton.com')) {
-      return c.json({
-        error: 'Only Napleton email addresses are allowed'
+      return c.json({ 
+        error: 'Only Napleton email addresses are allowed' 
       }, 400)
     }
 
@@ -255,25 +222,24 @@ app.post('/signup', async (c) => {
       return c.json({ error: error.message }, 400)
     }
 
-    // Store user profile in Elasticsearch
-    const userProfile = {
+    // Store user profile in KV store
+    await kv.set(`user:${data.user.id}`, {
       id: data.user.id,
       email,
       name,
-      role: 'porter' as const,
+      role: 'porter', // Default role
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
-    }
-
-    await esClient.index({
-      index: usersIndex,
-      id: data.user.id,
-      document: userProfile
     })
 
-    return c.json({
+    return c.json({ 
       message: 'User created successfully',
-      user: userProfile
+      user: {
+        id: data.user.id,
+        email,
+        name,
+        role: 'porter'
+      }
     })
   } catch (error) {
     console.log('Signup error:', error)
@@ -285,16 +251,13 @@ app.post('/signup', async (c) => {
 app.get('/profile', requireAuth, async (c) => {
   try {
     const user = c.get('user')
-    const result = await esClient.get({
-      index: usersIndex,
-      id: user.id
-    })
-
-    if (!result || !result._source) {
+    const profile = await kv.get(`user:${user.id}`)
+    
+    if (!profile) {
       return c.json({ error: 'Profile not found' }, 404)
     }
 
-    return c.json(result._source)
+    return c.json(profile)
   } catch (error) {
     console.log('Profile fetch error:', error)
     return c.json({ error: 'Failed to fetch profile' }, 500)
@@ -306,7 +269,7 @@ app.post('/fuel-entries', requireAuth, async (c) => {
   try {
     const user = c.get('user')
     const entryData = await c.req.json()
-
+    
     const fuelEntry = {
       id: crypto.randomUUID(),
       user_id: user.id,
@@ -314,19 +277,12 @@ app.post('/fuel-entries', requireAuth, async (c) => {
       created_at: new Date().toISOString()
     }
 
-    // Add geo_location if coordinates provided
-    if (fuelEntry.latitude && fuelEntry.longitude) {
-      fuelEntry.geo_location = {
-        lat: fuelEntry.latitude,
-        lon: fuelEntry.longitude
-      }
-    }
-
-    await esClient.index({
-      index: fuelEntriesIndex,
-      id: fuelEntry.id,
-      document: fuelEntry
-    })
+    await kv.set(`fuel_entry:${fuelEntry.id}`, fuelEntry)
+    
+    // Also store in user's fuel entries list
+    const userEntriesKey = `user_fuel_entries:${user.id}`
+    const existingEntries = await kv.get(userEntriesKey) || []
+    await kv.set(userEntriesKey, [...existingEntries, fuelEntry.id])
 
     return c.json(fuelEntry)
   } catch (error) {
@@ -339,39 +295,24 @@ app.post('/fuel-entries', requireAuth, async (c) => {
 app.get('/fuel-entries', requireAuth, async (c) => {
   try {
     const user = c.get('user')
-    const userProfileResult = await esClient.get({
-      index: usersIndex,
-      id: user.id
-    })
-
-    const userProfile = userProfileResult?._source
-
+    const userProfile = await kv.get(`user:${user.id}`)
+    
     if (userProfile?.role === 'admin') {
       // Admin can see all entries
-      const result = await esClient.search({
-        index: fuelEntriesIndex,
-        body: {
-          query: { match_all: {} },
-          sort: [{ timestamp: 'desc' }],
-          size: 1000
-        }
-      })
-
-      return c.json(result.hits.hits.map(hit => hit._source))
+      const allEntries = await kv.getByPrefix('fuel_entry:')
+      return c.json(allEntries)
     } else {
       // Regular users see only their entries
-      const result = await esClient.search({
-        index: fuelEntriesIndex,
-        body: {
-          query: {
-            term: { user_id: user.id }
-          },
-          sort: [{ timestamp: 'desc' }],
-          size: 100
-        }
-      })
-
-      return c.json(result.hits.hits.map(hit => hit._source))
+      const userEntriesKey = `user_fuel_entries:${user.id}`
+      const entryIds = await kv.get(userEntriesKey) || []
+      
+      const entries = []
+      for (const entryId of entryIds) {
+        const entry = await kv.get(`fuel_entry:${entryId}`)
+        if (entry) entries.push(entry)
+      }
+      
+      return c.json(entries)
     }
   } catch (error) {
     console.log('Get fuel entries error:', error)
@@ -385,7 +326,7 @@ app.post('/upload-photo', requireAuth, async (c) => {
     const user = c.get('user')
     const formData = await c.req.formData()
     const file = formData.get('photo') as File
-
+    
     if (!file) {
       return c.json({ error: 'No photo provided' }, 400)
     }
@@ -408,9 +349,9 @@ app.post('/upload-photo', requireAuth, async (c) => {
       .from(bucketName)
       .createSignedUrl(fileName, 60 * 60 * 24 * 7) // 7 days
 
-    return c.json({
+    return c.json({ 
       path: data.path,
-      url: signedUrlData?.signedUrl
+      url: signedUrlData?.signedUrl 
     })
   } catch (error) {
     console.log('Upload photo error:', error)
@@ -422,27 +363,14 @@ app.post('/upload-photo', requireAuth, async (c) => {
 app.get('/admin/users', requireAuth, async (c) => {
   try {
     const user = c.get('user')
-    const userProfileResult = await esClient.get({
-      index: usersIndex,
-      id: user.id
-    })
-
-    const userProfile = userProfileResult?._source
-
+    const userProfile = await kv.get(`user:${user.id}`)
+    
     if (userProfile?.role !== 'admin') {
       return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const result = await esClient.search({
-      index: usersIndex,
-      body: {
-        query: { match_all: {} },
-        sort: [{ created_at: 'desc' }],
-        size: 1000
-      }
-    })
-
-    return c.json(result.hits.hits.map(hit => hit._source))
+    const users = await kv.getByPrefix('user:')
+    return c.json(users)
   } catch (error) {
     console.log('Get users error:', error)
     return c.json({ error: 'Failed to fetch users' }, 500)
@@ -453,44 +381,28 @@ app.get('/admin/users', requireAuth, async (c) => {
 app.put('/admin/users/:userId/role', requireAuth, async (c) => {
   try {
     const user = c.get('user')
-    const userProfileResult = await esClient.get({
-      index: usersIndex,
-      id: user.id
-    })
-
-    const userProfile = userProfileResult?._source
-
+    const userProfile = await kv.get(`user:${user.id}`)
+    
     if (userProfile?.role !== 'admin') {
       return c.json({ error: 'Admin access required' }, 403)
     }
 
     const userId = c.req.param('userId')
     const { role } = await c.req.json()
-
-    const targetUserResult = await esClient.get({
-      index: usersIndex,
-      id: userId
-    })
-
-    if (!targetUserResult || !targetUserResult._source) {
+    
+    const targetUser = await kv.get(`user:${userId}`)
+    if (!targetUser) {
       return c.json({ error: 'User not found' }, 404)
     }
 
-    await esClient.update({
-      index: usersIndex,
-      id: userId,
-      doc: {
-        role,
-        updated_at: new Date().toISOString()
-      }
-    })
+    const updatedUser = {
+      ...targetUser,
+      role,
+      updated_at: new Date().toISOString()
+    }
 
-    const updatedResult = await esClient.get({
-      index: usersIndex,
-      id: userId
-    })
-
-    return c.json(updatedResult._source)
+    await kv.set(`user:${userId}`, updatedUser)
+    return c.json(updatedUser)
   } catch (error) {
     console.log('Update user role error:', error)
     return c.json({ error: 'Failed to update user role' }, 500)
@@ -501,34 +413,26 @@ app.put('/admin/users/:userId/role', requireAuth, async (c) => {
 app.delete('/admin/users/:userId', requireAuth, async (c) => {
   try {
     const user = c.get('user')
-    const userProfileResult = await esClient.get({
-      index: usersIndex,
-      id: user.id
-    })
-
-    const userProfile = userProfileResult?._source
-
+    const userProfile = await kv.get(`user:${user.id}`)
+    
     if (userProfile?.role !== 'admin') {
       return c.json({ error: 'Admin access required' }, 403)
     }
 
     const userId = c.req.param('userId')
-
+    
     // Delete user profile
-    await esClient.delete({
-      index: usersIndex,
-      id: userId
-    })
-
+    await kv.del(`user:${userId}`)
+    
     // Delete user's fuel entries
-    await esClient.deleteByQuery({
-      index: fuelEntriesIndex,
-      body: {
-        query: {
-          term: { user_id: userId }
-        }
-      }
-    })
+    const userEntriesKey = `user_fuel_entries:${userId}`
+    const entryIds = await kv.get(userEntriesKey) || []
+    
+    for (const entryId of entryIds) {
+      await kv.del(`fuel_entry:${entryId}`)
+    }
+    
+    await kv.del(userEntriesKey)
 
     return c.json({ message: 'User deleted successfully' })
   } catch (error) {
@@ -541,35 +445,14 @@ app.delete('/admin/users/:userId', requireAuth, async (c) => {
 app.get('/admin/export', requireAuth, async (c) => {
   try {
     const user = c.get('user')
-    const userProfileResult = await esClient.get({
-      index: usersIndex,
-      id: user.id
-    })
-
-    const userProfile = userProfileResult?._source
-
+    const userProfile = await kv.get(`user:${user.id}`)
+    
     if (userProfile?.role !== 'admin') {
       return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const entriesResult = await esClient.search({
-      index: fuelEntriesIndex,
-      body: {
-        query: { match_all: {} },
-        size: 10000
-      }
-    })
-
-    const usersResult = await esClient.search({
-      index: usersIndex,
-      body: {
-        query: { match_all: {} },
-        size: 10000
-      }
-    })
-
-    const entries = entriesResult.hits.hits.map(hit => hit._source)
-    const users = usersResult.hits.hits.map(hit => hit._source)
+    const entries = await kv.getByPrefix('fuel_entry:')
+    const users = await kv.getByPrefix('user:')
 
     // Create CSV data
     const csvHeaders = [

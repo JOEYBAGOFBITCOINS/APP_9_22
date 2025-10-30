@@ -4,9 +4,10 @@
 import { isDevelopmentFallback } from '../development';
 
 // Fallback configuration object
+// Production-ready defaults: demo mode OFF, authentication REQUIRED
 const FALLBACK_CONFIG = {
-  isDemoMode: true,
-  skipAuth: true,
+  isDemoMode: false,
+  skipAuth: false,
   autoLogin: false,
   defaultUserRole: 'porter',
   debugMode: false,
@@ -21,10 +22,10 @@ const getSafeConfig = () => {
     if (env && typeof env === 'object') {
       const isDev = env.DEV === true || env.MODE === 'development' || isDevelopmentFallback();
       
-      // TEMPORARY: Force demo mode enabled for quick access
+      // Production-ready configuration: demo mode and auth skip disabled by default
       return {
-        isDemoMode: env.VITE_DEMO_MODE === 'false' ? false : true,  // Default to true unless explicitly false
-        skipAuth: env.VITE_SKIP_AUTH === 'false' ? false : true,    // Default to true unless explicitly false
+        isDemoMode: env.VITE_DEMO_MODE === 'true',  // Default to false unless explicitly true
+        skipAuth: env.VITE_SKIP_AUTH === 'true',    // Default to false unless explicitly true
         autoLogin: env.VITE_AUTO_LOGIN === 'true' || isDev,
         defaultUserRole: env.VITE_DEFAULT_USER_ROLE || 'porter',
         debugMode: env.VITE_DEBUG_MODE === 'true' || isDev,
@@ -40,10 +41,10 @@ const getSafeConfig = () => {
     if (typeof process !== 'undefined' && process.env) {
       const isDev = process.env.NODE_ENV === 'development' || isDevelopmentFallback();
       
-      // TEMPORARY: Force demo mode enabled for quick access
+      // Production-ready configuration: demo mode and auth skip disabled by default
       return {
-        isDemoMode: process.env.VITE_DEMO_MODE === 'false' ? false : true,  // Default to true unless explicitly false
-        skipAuth: process.env.VITE_SKIP_AUTH === 'false' ? false : true,    // Default to true unless explicitly false
+        isDemoMode: process.env.VITE_DEMO_MODE === 'true',  // Default to false unless explicitly true
+        skipAuth: process.env.VITE_SKIP_AUTH === 'true',    // Default to false unless explicitly true
         autoLogin: process.env.VITE_AUTO_LOGIN === 'true' || isDev,
         defaultUserRole: process.env.VITE_DEFAULT_USER_ROLE || 'porter',
         debugMode: process.env.VITE_DEBUG_MODE === 'true' || isDev,
